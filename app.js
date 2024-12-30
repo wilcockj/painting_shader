@@ -22,7 +22,6 @@ const fragmentShaderSource = `
   uniform vec2 resolution;
 
   void main() {
-    vec2 pixel = uv * resolution;
     vec4 col = texture2D(growth, uv);
 
     if (col.a < 0.01) {
@@ -36,23 +35,24 @@ const fragmentShaderSource = `
           vec4 neighbor = texture2D(growth, uv + offset);
 
           if (neighbor.a > 0.01) {
-            sumColor += neighbor;
+            sumColor = neighbor;
             count += 1.0;
           }
         }
       }
 
-      if (count > 0.0) {
+      if (count > 9.0) {
         vec3 avgColor = sumColor.rgb / count;
         float tint = count / 8.0;
         gl_FragColor = vec4(avgColor * (0.8 + 0.2 * tint), 1.0);
+        gl_FragColor = sumColor;
       } else {
-        gl_FragColor = vec4(0, 0, 0, 0);
+        gl_FragColor = vec4(0.0, 0, 0, 0.0);
       }
     } else {
       gl_FragColor = col; // Retain existing color
     }
-    gl_FragColor = col;
+    //gl_FragColor = col;
   }
 `;
 
@@ -89,27 +89,6 @@ const resolutionLoc = gl.getUniformLocation(program, 'resolution');
 
 let growthTexture;
 
-function initRandomGrowth(image) {
-  const growthData = new Uint8Array(imgWidth * imgHeight * 4);
-  for (let i = 0; i < growthData.length; i += 4) {
-    if (Math.random() < 0.05) {
-      growthData[i] = image.data[i];
-      growthData[i + 1] = image.data[i + 1];
-      growthData[i + 2] = image.data[i + 2];
-      growthData[i + 3] = 255;
-    } else {
-      growthData[i + 3] = 0;
-    }
-  }
-
-  growthTexture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, growthTexture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgWidth, imgHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, growthData);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-}
-
 function createGrowthTexture(imageData) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -142,7 +121,7 @@ upload.addEventListener('change', (event) => {
 
     const growthData = new Uint8Array(canvas.width * canvas.height * 4);
     for (let i = 0; i < growthData.length; i += 4) {
-      if (Math.random() < 0.25) {
+      if (Math.random() < 0.1) {
         growthData[i] = imageData.data[i];
         growthData[i + 1] = imageData.data[i + 1];
         growthData[i + 2] = imageData.data[i + 2];
@@ -153,6 +132,7 @@ upload.addEventListener('change', (event) => {
     }
 
     growthTexture = createGrowthTexture(growthData);
+    render();
   };
 });
 
@@ -162,4 +142,3 @@ function render() {
   setTimeout(render,200);
 }
 
-render();
