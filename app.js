@@ -1,5 +1,5 @@
 const canvas = document.getElementById('webgl-canvas');
-const gl = canvas.getContext('webgl');
+const gl = canvas.getContext('webgl2');
 const upload = document.getElementById('upload');
 
 let imgWidth = 1;
@@ -121,7 +121,7 @@ upload.addEventListener('change', (event) => {
 
     const growthData = new Uint8Array(canvas.width * canvas.height * 4);
     for (let i = 0; i < growthData.length; i += 4) {
-      if (Math.random() < 0.1) {
+      if (Math.random() < 0.2) {
         growthData[i] = imageData.data[i];
         growthData[i + 1] = imageData.data[i + 1];
         growthData[i + 2] = imageData.data[i + 2];
