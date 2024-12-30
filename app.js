@@ -142,7 +142,7 @@ upload.addEventListener('change', (event) => {
 
     const growthData = new Uint8Array(canvas.width * canvas.height * 4);
     for (let i = 0; i < growthData.length; i += 4) {
-      if (Math.random() < 0.5) {
+      if (Math.random() < 0.25) {
         growthData[i] = imageData.data[i];
         growthData[i + 1] = imageData.data[i + 1];
         growthData[i + 2] = imageData.data[i + 2];
@@ -159,7 +159,7 @@ upload.addEventListener('change', (event) => {
 function render() {
   gl.uniform2f(resolutionLoc, imgWidth, imgHeight);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  requestAnimationFrame(render);
+  setTimeout(render,200);
 }
 
 render();
