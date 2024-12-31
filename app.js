@@ -217,7 +217,7 @@ function compareTextures() {
   gl.readPixels(0, 0, imgWidth, imgHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixelBuffer2);
 
   // Compare pixels (sample every Nth pixel for performance)
-  const sampleRate = 50; // Check every 10th pixel
+  const sampleRate = 100; // Check every 10th pixel
   const threshold = 1; // Minimum difference to consider as change
 
   for (let i = 0; i < pixelBuffer1.length; i += 4 * sampleRate) {
