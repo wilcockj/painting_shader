@@ -244,6 +244,7 @@ document.body.appendChild(debugInfo);
 // use growth texture for drawing to the screen
 // render into growth texture
 let stable_frames = 0;
+let frame_count = 0;
 function render() {
   debugInfo.textContent = `Frame: ${currentTime.toFixed(2)}s, Changed: ${hasChanged}`;
   currentTime = performance.now() * 0.001; // Convert to seconds
@@ -262,13 +263,15 @@ function render() {
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
   // Check if simulation is still changing
-  hasChanged = compareTextures();
+  if(frame_count++ % 4){
+    hasChanged = compareTextures();
 
-  if(!hasChanged){
-    stable_frames++;
-  }
-  else{
-    stable_frames = 0;
+    if(!hasChanged){
+      stable_frames++;
+    }
+    else{
+      stable_frames = 0;
+    }
   }
 
   currentTime = performance.now() * 0.001; // Convert to seconds
