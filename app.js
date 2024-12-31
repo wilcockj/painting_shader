@@ -264,7 +264,12 @@ function render() {
 
   // Check if simulation is still changing
   if(frame_count++ % 4){
-    hasChanged = compareTextures();
+    if (typeof screen.orientation !== 'undefined') {
+      hasChanged = true;
+    }
+    else{
+      hasChanged = compareTextures();
+    }
 
     if(!hasChanged){
       stable_frames++;
