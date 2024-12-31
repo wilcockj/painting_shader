@@ -20,6 +20,7 @@ const fragmentShaderSource = `
   varying vec2 uv;
   uniform sampler2D growth;
   uniform vec2 resolution;
+  uniform float time;  // New uniform for time
   const float held_back_chance = 0.25;
 
   float random (vec2 st) {
@@ -32,7 +33,7 @@ const fragmentShaderSource = `
   void main() {
     vec4 col = texture2D(growth, uv);
     vec2 st = gl_FragCoord.rg/resolution.rg;
-    float rnd = random(st);
+    float rnd = random(st+time);
     vec3 nudge = vec3(0.0);
 
     if (col.a < 0.01) {
@@ -46,23 +47,20 @@ const fragmentShaderSource = `
           vec4 neighbor = texture2D(growth, uv + offset);
 
           if (neighbor.a > 0.01) {
-            sumColor += neighbor;
+            sumColor = neighbor;
             count += 1.0;
-            nudge = vec3(random(offset),random(offset+.1),random(offset+.2)) * .2;
+            nudge = vec3(random(offset),random(offset+.1),random(offset+.2)) * .1;
           }
         }
       }
 
       if (count > 0.0) {
-        vec3 avgColor = sumColor.rgb / count;
+        vec3 avgColor = sumColor.rgb;// / count;
         float tint = count / 8.0;
-        //if (rnd < held_back_chance){
-          // chance of staying undrawn pixel
-          gl_FragColor = vec4(0.0, 0, 0, 0.0);
-        //}
-        //else{
-          gl_FragColor = vec4((avgColor + nudge) , 1.0)* step((1.0-held_back_chance),rnd);
-        //}
+
+        // chance of being 0d out
+        gl_FragColor = vec4(avgColor + nudge*step(1.0-held_back_chance/2.0,rnd), 1.0) * step((1.0-held_back_chance),rnd);
+
       } else {
         gl_FragColor = vec4(0.0, 0, 0, 0.0);
       }
@@ -103,7 +101,37 @@ gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
 
 const resolutionLoc = gl.getUniformLocation(program, 'resolution');
 
-let growthTexture;
+let growthTexture, nextTexture;
+let framebuffer;
+
+let buffer1, buffer2;
+
+// Create a framebuffer and attach a texture
+function createFramebufferTexture(width, height) {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+
+  // Explicitly initialize texture with blank data
+  const blankData = new Uint8Array(width * height * 4);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, blankData);
+
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+
+  // Clear the framebuffer to initialize texture
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); // Unbind framebuffer
+  return { texture, fbo };
+}
+
 
 function createGrowthTexture(imageData) {
   const texture = gl.createTexture();
@@ -139,7 +167,10 @@ upload.addEventListener('change', (event) => {
 
     const growthData = new Uint8Array(canvas.width * canvas.height * 4);
     for (let i = 0; i < growthData.length; i += 4) {
-      if (Math.random() < 0.1) {
+      growthData[i] = imageData.data[i];
+      growthData[i + 1] = imageData.data[i + 1];
+      growthData[i + 2] = imageData.data[i + 2];
+      if (Math.random() < 0.05) {
         growthData[i] = imageData.data[i];
         growthData[i + 1] = imageData.data[i + 1];
         growthData[i + 2] = imageData.data[i + 2];
@@ -149,14 +180,63 @@ upload.addEventListener('change', (event) => {
       }
     }
 
+    // Create textures and framebuffer for ping-pong rendering
     growthTexture = createGrowthTexture(growthData);
+    buffer1 = createFramebufferTexture(canvas.width, canvas.height);
+    buffer2 = createFramebufferTexture(canvas.width, canvas.height);
+    //framebuffer = buffer1;
+    //nextTexture = buffer2.texture;
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, buffer2.fbo);
+    gl.viewport(0, 0, imgWidth, imgHeight);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, growthTexture);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
     render();
   };
 });
 
+
+const timeLocation = gl.getUniformLocation(program, 'time');
+let currentTime = performance.now() * 0.001; // Convert to seconds
+gl.uniform1f(timeLocation, currentTime);
+// render starting using the growth texture for input
+// render into buffer 1 texture
+// use growth texture for drawing to the screen
+// render into growth texture
 function render() {
+
+  currentTime = performance.now() * 0.001; // Convert to seconds
+  gl.uniform1f(timeLocation, currentTime);
+
+  // Step 1: Render simulation step using current state
+  gl.bindFramebuffer(gl.FRAMEBUFFER, buffer1.fbo);
+  gl.viewport(0, 0, imgWidth, imgHeight);
+
+  // Bind the previous frame's texture as input
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, buffer2.texture);
+
+  // Set uniforms and render
   gl.uniform2f(resolutionLoc, imgWidth, imgHeight);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  setTimeout(render,200);
-}
 
+  currentTime = performance.now() * 0.001; // Convert to seconds
+  gl.uniform1f(timeLocation, currentTime);
+
+  // Step 2: Render to screen
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, imgWidth, imgHeight);
+
+  // Use the result of the simulation as input
+  gl.bindTexture(gl.TEXTURE_2D, buffer1.texture);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+  // Step 3: Swap buffers for next frame
+  const temp = buffer1;
+  buffer1 = buffer2;
+  buffer2 = temp;
+
+  requestAnimationFrame(render,2000);
+}
