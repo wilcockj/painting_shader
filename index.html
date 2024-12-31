@@ -17,6 +17,11 @@
 </head>
 <body>
   <input type="file" id="upload" accept="image/*" />
+<div>
+  <input type="range" id="sample_rate" name="sample_rate" min="0.01" max="0.8" step="0.01" value="0.02" oninput="this.nextElementSibling.value = this.value"/>
+      <output>0.02</output>
+  <label for="Sample Rate">Sample Rate</label>
+</div>
   <canvas id="webgl-canvas"></canvas>
   <script src="app.js"></script>
 </body>

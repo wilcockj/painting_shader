@@ -144,58 +144,78 @@ function createGrowthTexture(imageData) {
   return texture;
 }
 
-upload.addEventListener('change', (event) => {
-  const file = event.target.files[0];
-  const img = new Image();
-  img.src = URL.createObjectURL(file);
-  img.onload = () => {
-    const offscreen = document.createElement('canvas');
-    const ctx = offscreen.getContext('2d');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    imgWidth = img.width;
-    imgHeight = img.height;
-    console.log("Current shader canvas dims = ", canvas.width, canvas.height);
-    gl.viewport(0,0,canvas.width,canvas.height);
-    offscreen.width = canvas.width;
-    offscreen.height = canvas.height;
-    console.log("Canvas size is ", canvas.width,canvas.height);
-    ctx.scale(1, -1);
-    ctx.translate(0, -canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+const img = new Image();
 
-    const growthData = new Uint8Array(canvas.width * canvas.height * 4);
-    for (let i = 0; i < growthData.length; i += 4) {
+let img_sample_rate = 0.05;
+
+function init_sim(){
+  stable_frames = 0;
+  const offscreen = document.createElement('canvas');
+  const ctx = offscreen.getContext('2d');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  imgWidth = img.width;
+  imgHeight = img.height;
+  console.log("Current shader canvas dims = ", canvas.width, canvas.height);
+  gl.viewport(0,0,canvas.width,canvas.height);
+  offscreen.width = canvas.width;
+  offscreen.height = canvas.height;
+  console.log("Canvas size is ", canvas.width,canvas.height);
+  ctx.scale(1, -1);
+  ctx.translate(0, -canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  const growthData = new Uint8Array(canvas.width * canvas.height * 4);
+  for (let i = 0; i < growthData.length; i += 4) {
+    growthData[i] = imageData.data[i];
+    growthData[i + 1] = imageData.data[i + 1];
+    growthData[i + 2] = imageData.data[i + 2];
+    if (Math.random() < img_sample_rate) {
       growthData[i] = imageData.data[i];
       growthData[i + 1] = imageData.data[i + 1];
       growthData[i + 2] = imageData.data[i + 2];
-      if (Math.random() < 0.05) {
-        growthData[i] = imageData.data[i];
-        growthData[i + 1] = imageData.data[i + 1];
-        growthData[i + 2] = imageData.data[i + 2];
-        growthData[i + 3] = 255;
-      } else {
-        growthData[i + 3] = 0;
-      }
+      growthData[i + 3] = 255;
+    } else {
+      growthData[i + 3] = 0;
     }
+  }
 
-    // Create textures and framebuffer for ping-pong rendering
-    growthTexture = createGrowthTexture(growthData);
-    buffer1 = createFramebufferTexture(canvas.width, canvas.height);
-    buffer2 = createFramebufferTexture(canvas.width, canvas.height);
-    //framebuffer = buffer1;
-    //nextTexture = buffer2.texture;
+  // Create textures and framebuffer for ping-pong rendering
+  growthTexture = createGrowthTexture(growthData);
+  buffer1 = createFramebufferTexture(canvas.width, canvas.height);
+  buffer2 = createFramebufferTexture(canvas.width, canvas.height);
+  //framebuffer = buffer1;
+  //nextTexture = buffer2.texture;
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, buffer2.fbo);
-    gl.viewport(0, 0, imgWidth, imgHeight);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, growthTexture);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, buffer2.fbo);
+  gl.viewport(0, 0, imgWidth, imgHeight);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, growthTexture);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-    render();
+  render();
+}
+
+upload.addEventListener('change', (event) => {
+  const file = event.target.files[0];
+  img.src = URL.createObjectURL(file);
+  img.onload = () => {
+    init_sim();
   };
 });
+
+var sample_rate = document.getElementById('sample_rate');
+
+sample_rate.addEventListener('change', (event) => {
+  img_sample_rate = event.target.value;
+
+  console.log("Sample rate is ",img_sample_rate);
+  if(img.src != ""){
+    console.log(img.src);
+    init_sim();
+  }
+})
 
 // Add these variables to your global scope
 let pixelBuffer1 = null;
@@ -264,12 +284,7 @@ function render() {
 
   // Check if simulation is still changing
   if(frame_count++ % 4){
-    if (typeof screen.orientation !== 'undefined') {
-      hasChanged = true;
-    }
-    else{
-      hasChanged = compareTextures();
-    }
+    hasChanged = compareTextures();
 
     if(!hasChanged){
       stable_frames++;
