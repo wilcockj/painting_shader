@@ -49,7 +49,7 @@ const fragmentShaderSource = `
           if (neighbor.a > 0.01) {
             sumColor = neighbor;
             count += 1.0;
-            nudge = vec3(random(offset),random(offset+.1),random(offset+.2)) * .1;
+            nudge = vec3(random(offset),random(offset+.1),random(offset+.2)) * .05;
           }
         }
       }
@@ -59,7 +59,7 @@ const fragmentShaderSource = `
         float tint = count / 8.0;
 
         // chance of being 0d out
-        gl_FragColor = vec4(avgColor + nudge*step(1.0-held_back_chance/2.0,rnd), 1.0) * step((1.0-held_back_chance),rnd);
+        gl_FragColor = vec4(avgColor + nudge*step(1.0-held_back_chance/4.0,rnd), 1.0) * step((1.0-held_back_chance),rnd);
 
       } else {
         gl_FragColor = vec4(0.0, 0, 0, 0.0);
@@ -197,16 +197,55 @@ upload.addEventListener('change', (event) => {
   };
 });
 
+// Add these variables to your global scope
+let pixelBuffer1 = null;
+let pixelBuffer2 = null;
+let hasChanged = true;
+
+function compareTextures() {
+  // Initialize buffers if they don't exist
+  if (!pixelBuffer1) {
+    pixelBuffer1 = new Uint8Array(imgWidth * imgHeight * 4);
+    pixelBuffer2 = new Uint8Array(imgWidth * imgHeight * 4);
+  }
+
+  // Read pixels from both textures
+  gl.bindFramebuffer(gl.FRAMEBUFFER, buffer1.fbo);
+  gl.readPixels(0, 0, imgWidth, imgHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixelBuffer1);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, buffer2.fbo);
+  gl.readPixels(0, 0, imgWidth, imgHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixelBuffer2);
+
+  // Compare pixels (sample every Nth pixel for performance)
+  const sampleRate = 50; // Check every 10th pixel
+  const threshold = 1; // Minimum difference to consider as change
+
+  for (let i = 0; i < pixelBuffer1.length; i += 4 * sampleRate) {
+    const diff = Math.abs(pixelBuffer1[i + 3] - pixelBuffer2[i + 3]); // Compare alpha
+    if (diff > threshold) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 const timeLocation = gl.getUniformLocation(program, 'time');
 let currentTime = performance.now() * 0.001; // Convert to seconds
 gl.uniform1f(timeLocation, currentTime);
+
+const debugInfo = document.createElement('div');
+document.body.appendChild(debugInfo);
+
+// Add this to the render function before requestAnimationFrame
+
 // render starting using the growth texture for input
 // render into buffer 1 texture
 // use growth texture for drawing to the screen
 // render into growth texture
+let stable_frames = 0;
 function render() {
-
+  debugInfo.textContent = `Frame: ${currentTime.toFixed(2)}s, Changed: ${hasChanged}`;
   currentTime = performance.now() * 0.001; // Convert to seconds
   gl.uniform1f(timeLocation, currentTime);
 
@@ -221,6 +260,16 @@ function render() {
   // Set uniforms and render
   gl.uniform2f(resolutionLoc, imgWidth, imgHeight);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+  // Check if simulation is still changing
+  hasChanged = compareTextures();
+
+  if(!hasChanged){
+    stable_frames++;
+  }
+  else{
+    stable_frames = 0;
+  }
 
   currentTime = performance.now() * 0.001; // Convert to seconds
   gl.uniform1f(timeLocation, currentTime);
@@ -238,5 +287,11 @@ function render() {
   buffer1 = buffer2;
   buffer2 = temp;
 
-  requestAnimationFrame(render,2000);
+  // Only continue rendering if the simulation is still changing
+  if (stable_frames < 100) {
+    requestAnimationFrame(render);
+  } else {
+    console.log('Simulation has stabilized');
+    stable_frames = 0;
+  }
 }
