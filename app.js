@@ -20,9 +20,20 @@ const fragmentShaderSource = `
   varying vec2 uv;
   uniform sampler2D growth;
   uniform vec2 resolution;
+  const float held_back_chance = 0.25;
+
+  float random (vec2 st) {
+    return fract(sin(dot(st.xy,
+                          vec2(12.9898,78.233)))*
+        43758.5453123);
+  }
+
 
   void main() {
     vec4 col = texture2D(growth, uv);
+    vec2 st = gl_FragCoord.rg/resolution.rg;
+    float rnd = random(st);
+    vec3 nudge = vec3(0.0);
 
     if (col.a < 0.01) {
       vec4 sumColor = vec4(0.0);
@@ -35,24 +46,29 @@ const fragmentShaderSource = `
           vec4 neighbor = texture2D(growth, uv + offset);
 
           if (neighbor.a > 0.01) {
-            sumColor = neighbor;
+            sumColor += neighbor;
             count += 1.0;
+            nudge = vec3(random(offset),random(offset+.1),random(offset+.2)) * .2;
           }
         }
       }
 
-      if (count > 9.0) {
+      if (count > 0.0) {
         vec3 avgColor = sumColor.rgb / count;
         float tint = count / 8.0;
-        gl_FragColor = vec4(avgColor * (0.8 + 0.2 * tint), 1.0);
-        gl_FragColor = sumColor;
+        //if (rnd < held_back_chance){
+          // chance of staying undrawn pixel
+          gl_FragColor = vec4(0.0, 0, 0, 0.0);
+        //}
+        //else{
+          gl_FragColor = vec4((avgColor + nudge) , 1.0)* step((1.0-held_back_chance),rnd);
+        //}
       } else {
         gl_FragColor = vec4(0.0, 0, 0, 0.0);
       }
     } else {
       gl_FragColor = col; // Retain existing color
     }
-    //gl_FragColor = col;
   }
 `;
 
@@ -109,6 +125,8 @@ upload.addEventListener('change', (event) => {
     const ctx = offscreen.getContext('2d');
     canvas.width = img.width;
     canvas.height = img.height;
+    imgWidth = img.width;
+    imgHeight = img.height;
     console.log("Current shader canvas dims = ", canvas.width, canvas.height);
     gl.viewport(0,0,canvas.width,canvas.height);
     offscreen.width = canvas.width;
@@ -121,7 +139,7 @@ upload.addEventListener('change', (event) => {
 
     const growthData = new Uint8Array(canvas.width * canvas.height * 4);
     for (let i = 0; i < growthData.length; i += 4) {
-      if (Math.random() < 0.2) {
+      if (Math.random() < 0.1) {
         growthData[i] = imageData.data[i];
         growthData[i + 1] = imageData.data[i + 1];
         growthData[i + 2] = imageData.data[i + 2];
