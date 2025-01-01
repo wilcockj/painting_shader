@@ -56,7 +56,6 @@ const fragmentShaderSource = `
 
       if (count > 0.0) {
         vec3 avgColor = sumColor.rgb;// / count;
-        float tint = count / 8.0;
 
         // chance of being 0d out
         gl_FragColor = vec4(avgColor + nudge*step(1.0-held_back_chance/4.0,rnd), 1.0) * step((1.0-held_back_chance),rnd);
@@ -265,8 +264,21 @@ document.body.appendChild(debugInfo);
 // render into growth texture
 let stable_frames = 0;
 let frame_count = 0;
+let lastTime = performance.now();
+let frameCount = 0;
+
 function render() {
-  debugInfo.textContent = `Frame: ${currentTime.toFixed(2)}s, Changed: ${hasChanged}`;
+
+
+  // In render function:
+  frameCount++;
+  currentTime = performance.now();
+  if (currentTime - lastTime >= 1000) {
+      debugInfo.textContent = `FPS: ${frameCount}`;
+      frameCount = 0;
+      lastTime = currentTime;
+  }
+
   currentTime = performance.now() * 0.001; // Convert to seconds
   gl.uniform1f(timeLocation, currentTime);
 
@@ -283,6 +295,7 @@ function render() {
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
   // Check if simulation is still changing
+  /*
   if(frame_count++ % 4){
     hasChanged = compareTextures();
 
@@ -292,7 +305,7 @@ function render() {
     else{
       stable_frames = 0;
     }
-  }
+  }*/
 
   currentTime = performance.now() * 0.001; // Convert to seconds
   gl.uniform1f(timeLocation, currentTime);
@@ -310,11 +323,15 @@ function render() {
   buffer1 = buffer2;
   buffer2 = temp;
 
+  setTimeout(() => {
+    requestAnimationFrame(render);
+  }, 1000 / 30);
   // Only continue rendering if the simulation is still changing
+  /*
   if (stable_frames < 100) {
     requestAnimationFrame(render);
   } else {
     console.log('Simulation has stabilized');
     stable_frames = 0;
-  }
+  }*/
 }
