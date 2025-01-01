@@ -1,5 +1,7 @@
 const canvas = document.getElementById('webgl-canvas');
 const gl = canvas.getContext('webgl2');
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+const full_quality_checkbox = document.getElementById('full_quality');
 
 
 let imgWidth = 1;
@@ -149,6 +151,9 @@ const img = new Image();
 let img_sample_rate = 0.05;
 
 let render_started = false;
+let full_quality = !isMobile;
+full_quality_checkbox.checked = full_quality;
+
 function init_sim(){
   
   stable_frames = 0;
@@ -159,26 +164,27 @@ function init_sim(){
   imgWidth = img.width;
   imgHeight = img.height;
 
+  if(!full_quality){
+    // Scale down image for mobile
+    const maxDimension = 512; // Limit size for mobile
+    let width = img.width;
+    let height = img.height;
 
-  // Scale down image for mobile
-  const maxDimension = 512; // Limit size for mobile
-  let width = img.width;
-  let height = img.height;
-
-  if (width > maxDimension || height > maxDimension) {
-    if (width > height) {
-      height = height * (maxDimension / width);
-      width = maxDimension;
-    } else {
-      width = width * (maxDimension / height);
-      height = maxDimension;
+    if (width > maxDimension || height > maxDimension) {
+      if (width > height) {
+        height = height * (maxDimension / width);
+        width = maxDimension;
+      } else {
+        width = width * (maxDimension / height);
+        height = maxDimension;
+      }
     }
-  }
 
-  canvas.width = width;
-  canvas.height = height;
-  imgWidth = width;
-  imgHeight = height;
+    canvas.width = width;
+    canvas.height = height;
+    imgWidth = width;
+    imgHeight = height;
+  }
 
 
   console.log("Current shader canvas dims = ", canvas.width, canvas.height);
@@ -247,7 +253,10 @@ sample_rate.addEventListener('change', (event) => {
   }
 })
 
-
+full_quality_checkbox.addEventListener('change', (event) => {
+  full_quality = event.target.checked;
+  console.log(event.target);
+})
 
 const debugInfo = document.createElement('div');
 document.body.appendChild(debugInfo);
