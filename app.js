@@ -1,6 +1,6 @@
 const canvas = document.getElementById('webgl-canvas');
 const gl = canvas.getContext('webgl2');
-const upload = document.getElementById('upload');
+
 
 let imgWidth = 1;
 let imgHeight = 1;
@@ -99,6 +99,7 @@ gl.enableVertexAttribArray(position);
 gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
 
 const resolutionLoc = gl.getUniformLocation(program, 'resolution');
+const timeLocation = gl.getUniformLocation(program, 'time');
 
 let growthTexture, nextTexture;
 let framebuffer;
@@ -147,7 +148,9 @@ const img = new Image();
 
 let img_sample_rate = 0.05;
 
+let render_started = false;
 function init_sim(){
+  
   stable_frames = 0;
   const offscreen = document.createElement('canvas');
   const ctx = offscreen.getContext('2d');
@@ -203,21 +206,27 @@ function init_sim(){
     }
   }
 
+
+  let currentTime = performance.now() * 0.001; // Convert to seconds
+  gl.uniform1f(timeLocation, currentTime);
   // Create textures and framebuffer for ping-pong rendering
   growthTexture = createGrowthTexture(growthData);
   buffer1 = createFramebufferTexture(canvas.width, canvas.height);
   buffer2 = createFramebufferTexture(canvas.width, canvas.height);
-  //framebuffer = buffer1;
-  //nextTexture = buffer2.texture;
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, buffer2.fbo);
   gl.viewport(0, 0, imgWidth, imgHeight);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, growthTexture);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-  render();
+  if (!render_started) {
+    // if render has been called before we should not call render
+    // as that "thread" is already going
+    render_started = true;
+    render();
+  }
 }
+const upload = document.getElementById('upload');
 
 upload.addEventListener('change', (event) => {
   const file = event.target.files[0];
@@ -227,65 +236,26 @@ upload.addEventListener('change', (event) => {
   };
 });
 
-var sample_rate = document.getElementById('sample_rate');
+const sample_rate = document.getElementById('sample_rate');
 
 sample_rate.addEventListener('change', (event) => {
   img_sample_rate = event.target.value;
 
   console.log("Sample rate is ",img_sample_rate);
   if(img.src != ""){
-    console.log(img.src);
     init_sim();
   }
 })
 
-// Add these variables to your global scope
-let pixelBuffer1 = null;
-let pixelBuffer2 = null;
-let hasChanged = true;
 
-function compareTextures() {
-  // Initialize buffers if they don't exist
-  if (!pixelBuffer1) {
-    pixelBuffer1 = new Uint8Array(imgWidth * imgHeight * 4);
-    pixelBuffer2 = new Uint8Array(imgWidth * imgHeight * 4);
-  }
-
-  // Read pixels from both textures
-  gl.bindFramebuffer(gl.FRAMEBUFFER, buffer1.fbo);
-  gl.readPixels(0, 0, imgWidth, imgHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixelBuffer1);
-
-  gl.bindFramebuffer(gl.FRAMEBUFFER, buffer2.fbo);
-  gl.readPixels(0, 0, imgWidth, imgHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixelBuffer2);
-
-  // Compare pixels (sample every Nth pixel for performance)
-  const sampleRate = 100; // Check every 10th pixel
-  const threshold = 1; // Minimum difference to consider as change
-
-  for (let i = 0; i < pixelBuffer1.length; i += 4 * sampleRate) {
-    const diff = Math.abs(pixelBuffer1[i + 3] - pixelBuffer2[i + 3]); // Compare alpha
-    if (diff > threshold) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-const timeLocation = gl.getUniformLocation(program, 'time');
-let currentTime = performance.now() * 0.001; // Convert to seconds
-gl.uniform1f(timeLocation, currentTime);
 
 const debugInfo = document.createElement('div');
 document.body.appendChild(debugInfo);
-
-// Add this to the render function before requestAnimationFrame
 
 // render starting using the growth texture for input
 // render into buffer 1 texture
 // use growth texture for drawing to the screen
 // render into growth texture
-let stable_frames = 0;
 let frame_count = 0;
 let lastTime = performance.now();
 let frameCount = 0;
@@ -295,7 +265,7 @@ function render() {
 
   // In render function:
   frameCount++;
-  currentTime = performance.now();
+  let currentTime = performance.now();
   if (currentTime - lastTime >= 1000) {
       debugInfo.textContent = `FPS: ${frameCount}`;
       frameCount = 0;
@@ -305,7 +275,7 @@ function render() {
   currentTime = performance.now() * 0.001; // Convert to seconds
   gl.uniform1f(timeLocation, currentTime);
 
-  // Step 1: Render simulation step using current state
+  // Render simulation step using current state
   gl.bindFramebuffer(gl.FRAMEBUFFER, buffer1.fbo);
   gl.viewport(0, 0, imgWidth, imgHeight);
 
@@ -321,7 +291,7 @@ function render() {
   currentTime = performance.now() * 0.001; // Convert to seconds
   gl.uniform1f(timeLocation, currentTime);
 
-  // Step 2: Render to screen
+  // Render to screen
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, imgWidth, imgHeight);
 
@@ -329,7 +299,7 @@ function render() {
   gl.bindTexture(gl.TEXTURE_2D, buffer1.texture);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-  // Step 3: Swap buffers for next frame
+  // Swap buffers for next frame
   const temp = buffer1;
   buffer1 = buffer2;
   buffer2 = temp;
