@@ -155,6 +155,29 @@ function init_sim(){
   canvas.height = img.height;
   imgWidth = img.width;
   imgHeight = img.height;
+
+
+  // Scale down image for mobile
+  const maxDimension = 512; // Limit size for mobile
+  let width = img.width;
+  let height = img.height;
+
+  if (width > maxDimension || height > maxDimension) {
+    if (width > height) {
+      height = height * (maxDimension / width);
+      width = maxDimension;
+    } else {
+      width = width * (maxDimension / height);
+      height = maxDimension;
+    }
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+  imgWidth = width;
+  imgHeight = height;
+
+
   console.log("Current shader canvas dims = ", canvas.width, canvas.height);
   gl.viewport(0,0,canvas.width,canvas.height);
   offscreen.width = canvas.width;
@@ -294,18 +317,6 @@ function render() {
   gl.uniform2f(resolutionLoc, imgWidth, imgHeight);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-  // Check if simulation is still changing
-  /*
-  if(frame_count++ % 4){
-    hasChanged = compareTextures();
-
-    if(!hasChanged){
-      stable_frames++;
-    }
-    else{
-      stable_frames = 0;
-    }
-  }*/
 
   currentTime = performance.now() * 0.001; // Convert to seconds
   gl.uniform1f(timeLocation, currentTime);
@@ -326,12 +337,4 @@ function render() {
   setTimeout(() => {
     requestAnimationFrame(render);
   }, 1000 / 30);
-  // Only continue rendering if the simulation is still changing
-  /*
-  if (stable_frames < 100) {
-    requestAnimationFrame(render);
-  } else {
-    console.log('Simulation has stabilized');
-    stable_frames = 0;
-  }*/
 }
