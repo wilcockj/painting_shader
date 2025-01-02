@@ -51,7 +51,7 @@ const fragmentShaderSource = `
           if (neighbor.a > 0.01) {
             sumColor = neighbor;
             count += 1.0;
-            nudge = vec3(random(offset),random(offset+.1),random(offset+.2)) * .05;
+            nudge = vec3(random(offset),random(offset+1.2),random(offset+2.8)) * .05;
           }
         }
       }
@@ -156,6 +156,9 @@ full_quality_checkbox.checked = full_quality;
 
 function init_sim(){
   
+  if(img.src == ""){
+    return;
+  }
   stable_frames = 0;
   const offscreen = document.createElement('canvas');
   const ctx = offscreen.getContext('2d');
@@ -248,14 +251,14 @@ sample_rate.addEventListener('change', (event) => {
   img_sample_rate = event.target.value;
 
   console.log("Sample rate is ",img_sample_rate);
-  if(img.src != ""){
-    init_sim();
-  }
+  init_sim();
+
 })
 
 full_quality_checkbox.addEventListener('change', (event) => {
   full_quality = event.target.checked;
   console.log(event.target);
+  init_sim();
 })
 
 const debugInfo = document.createElement('div');
@@ -270,7 +273,6 @@ let lastTime = performance.now();
 let frameCount = 0;
 
 function render() {
-
 
   // In render function:
   frameCount++;
