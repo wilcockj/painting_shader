@@ -1,4 +1,6 @@
 const canvas = document.getElementById('webgl-canvas');
+const image_canvas = document.getElementById('basic_image_canvas');
+const image_canvas_handle = image_canvas.getContext('2d');
 const gl = canvas.getContext('webgl2');
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 const full_quality_checkbox = document.getElementById('full_quality');
@@ -171,6 +173,8 @@ function init_sim(){
   const ctx = offscreen.getContext('2d');
   canvas.width = img.width;
   canvas.height = img.height;
+  image_canvas.width = img.width;
+  image_canvas.height = img.height;
   imgWidth = img.width;
   imgHeight = img.height;
 
@@ -192,6 +196,8 @@ function init_sim(){
 
     canvas.width = width;
     canvas.height = height;
+    image_canvas.width = width;
+    image_canvas.height = height;
     imgWidth = width;
     imgHeight = height;
   }
@@ -267,8 +273,9 @@ full_quality_checkbox.addEventListener('change', (event) => {
   init_sim();
 })
 
+const info_div = document.getElementById('info');
 const debugInfo = document.createElement('div');
-document.body.appendChild(debugInfo);
+info_div.appendChild(debugInfo);
 
 // render starting using the growth texture for input
 // render into buffer 1 texture
@@ -278,7 +285,46 @@ let frame_count = 0;
 let lastTime = performance.now();
 let frameCount = 0;
 
+var mouseDown = false;
+image_canvas.addEventListener('mousedown', function(evt) {
+  if(evt.button == 0) {
+    // left click
+    console.log("MOUSE DOWN");
+    mouseDown = true;
+  }
+});
+
+image_canvas.addEventListener('mouseup', function(evt) {
+  if(evt.button == 0) {
+    // left click
+    console.log("MOUSE UP");
+    mouseDown = false;
+  }
+});
+
+let first_draw = true;
+let first_clear = true;
+
 function render() {
+  if(mouseDown){
+    // show the original image
+    if(first_draw){
+      image_canvas_handle.drawImage(img,0,0,image_canvas.width,image_canvas.height);
+      first_draw = false;
+      first_clear = true;
+    }
+    setTimeout(() => {
+        requestAnimationFrame(render);
+      }, 1000 / 10);
+    return;
+  }
+  else{
+    if(first_clear){
+      image_canvas_handle.clearRect(0,0,image_canvas.width,image_canvas.height);
+      first_clear = false;
+      first_draw = true;
+    }
+  }
 
   // In render function:
   frameCount++;
@@ -322,4 +368,44 @@ function render() {
   setTimeout(() => {
     requestAnimationFrame(render);
   }, 1000 / 30);
+}
+
+document.getElementById('save_result_button').addEventListener('click', saveCanvasAsImage);
+
+function saveCanvasAsImage() {
+  const width = canvas.width;
+  const height = canvas.height;
+
+  // Create a buffer to store pixel data
+  const pixels = new Uint8Array(width * height * 4); // RGBA values
+  gl.bindFramebuffer(gl.FRAMEBUFFER, buffer1.fbo);
+  gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+  // Convert pixel data to an image
+  const imageData = new ImageData(width, height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const srcIndex = (y * width + x) * 4;
+      const destIndex = ((height - y - 1) * width + x) * 4; // Flip vertically
+      imageData.data[destIndex] = pixels[srcIndex];     // R
+      imageData.data[destIndex + 1] = pixels[srcIndex + 1]; // G
+      imageData.data[destIndex + 2] = pixels[srcIndex + 2]; // B
+      imageData.data[destIndex + 3] = pixels[srcIndex + 3]; // A
+    }
+  }
+  console.log(imageData);
+
+  // Create a new canvas to draw the image data
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = width;
+  exportCanvas.height = height;
+  const exportCtx = exportCanvas.getContext('2d');
+  exportCtx.putImageData(imageData, 0, 0);
+
+  // Convert the export canvas to a data URL and download
+  const dataURL = exportCanvas.toDataURL('image/png');
+  const link = document.createElement('a');
+  link.href = dataURL;
+  link.download = 'webgl-canvas.png';
+  link.click();
 }
