@@ -148,6 +148,11 @@ function createGrowthTexture(imageData) {
   return texture;
 }
 
+function inject_randomness(){
+  let randomness = Math.random()*1000; // Convert to seconds
+  gl.uniform1f(timeLocation, randomness);
+}
+
 const img = new Image();
 
 let img_sample_rate = 0.05;
@@ -218,8 +223,7 @@ function init_sim(){
   }
 
 
-  let currentTime = performance.now() * 0.001; // Convert to seconds
-  gl.uniform1f(timeLocation, currentTime);
+
   // Create textures and framebuffer for ping-pong rendering
   growthTexture = createGrowthTexture(growthData);
   buffer1 = createFramebufferTexture(canvas.width, canvas.height);
@@ -285,8 +289,7 @@ function render() {
       lastTime = currentTime;
   }
 
-  currentTime = performance.now() * 0.001; // Convert to seconds
-  gl.uniform1f(timeLocation, currentTime);
+  inject_randomness();
 
   // Render simulation step using current state
   gl.bindFramebuffer(gl.FRAMEBUFFER, buffer1.fbo);
@@ -301,9 +304,8 @@ function render() {
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
 
-  currentTime = performance.now() * 0.001; // Convert to seconds
-  gl.uniform1f(timeLocation, currentTime);
-
+  //currentTime = performance.now() * 0.001; // Convert to seconds
+  inject_randomness();
   // Render to screen
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, imgWidth, imgHeight);
