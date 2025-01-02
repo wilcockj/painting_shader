@@ -51,7 +51,9 @@ const fragmentShaderSource = `
           if (neighbor.a > 0.01) {
             sumColor = neighbor;
             count += 1.0;
-            nudge = vec3(random(offset),random(offset+1.2),random(offset+2.8)) * .05;
+	    float nudge_strength = .05;
+	    // nudge randomly in random direction
+            nudge = vec3(random(offset),random(offset+1.2),random(offset+2.8)) * nudge_strength * (2.0 * step(0.5,random(offset+3.5)) - 1.0);
           }
         }
       }
