@@ -25,7 +25,7 @@ const fragmentShaderSource = `
   uniform sampler2D growth;
   uniform vec2 resolution;
   uniform float time;  // New uniform for time
-  const float held_back_chance = 0.25;
+  const float held_back_chance = 1.0;
 
   float random (vec2 st) {
     return fract(sin(dot(st.xy,
@@ -234,6 +234,8 @@ function init_sim(){
   growthTexture = createGrowthTexture(growthData);
   buffer1 = createFramebufferTexture(canvas.width, canvas.height);
   buffer2 = createFramebufferTexture(canvas.width, canvas.height);
+
+  inject_randomness();
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, buffer2.fbo);
   gl.viewport(0, 0, imgWidth, imgHeight);
